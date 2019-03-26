@@ -3,7 +3,9 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2014, assimp team
+Copyright (c) 2006-2019, assimp team
+
+
 
 All rights reserved.
 
@@ -44,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <assimp/Exporter.hpp>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #ifndef ASSIMP_BUILD_NO_EXPORT
 
@@ -64,38 +67,37 @@ public:
     }
 
 protected:
-
-
     Assimp::Exporter* ex;
     Assimp::Importer* im;
 };
 
-// ------------------------------------------------------------------------------------------------
 TEST_F(ColladaExportCamera, testExportCamera)
 {
     const char* file = "cameraExp.dae";
 
-    const aiScene* pTest = im->ReadFile(ASSIMP_TEST_MODELS_DIR "/Collada/cameras.dae",0);
+    const aiScene* pTest = im->ReadFile(ASSIMP_TEST_MODELS_DIR "/Collada/cameras.dae", aiProcess_ValidateDataStructure);
     ASSERT_TRUE(pTest!=NULL);
     ASSERT_TRUE(pTest->HasCameras());
 
 
     EXPECT_EQ(AI_SUCCESS,ex->Export(pTest,"collada",file));
     const unsigned int origNumCams( pTest->mNumCameras );
-    float *origFOV = new float[ origNumCams ];
-    float *orifClipPlaneNear = new float[ origNumCams ];
-    float *orifClipPlaneFar = new float[ origNumCams ];
-    aiString *names = new aiString[ origNumCams ];
-    aiVector3D *pos = new aiVector3D[ origNumCams ];
+    std::unique_ptr<float[]> origFOV( new float[ origNumCams ] );
+    std::unique_ptr<float[]> orifClipPlaneNear( new float[ origNumCams ] );
+    std::unique_ptr<float[]> orifClipPlaneFar( new float[ origNumCams ] );
+    std::unique_ptr<aiString[]> names( new aiString[ origNumCams ] );
+    std::unique_ptr<aiVector3D[]> pos( new aiVector3D[ origNumCams ] );
     for (size_t i = 0; i < origNumCams; i++) {
         const aiCamera *orig = pTest->mCameras[ i ];
+        ASSERT_TRUE( orig != nullptr );
+
         origFOV[ i ] = orig->mHorizontalFOV;
         orifClipPlaneNear[ i ] = orig->mClipPlaneNear;
         orifClipPlaneFar[ i ] = orig->mClipPlaneFar;
         names[ i ] = orig->mName;
         pos[ i ] = orig->mPosition;
     }
-    const aiScene* imported = im->ReadFile(file,0);
+    const aiScene* imported = im->ReadFile(file, aiProcess_ValidateDataStructure);
 
     ASSERT_TRUE(imported!=NULL);
 
@@ -114,15 +116,8 @@ TEST_F(ColladaExportCamera, testExportCamera)
         EXPECT_FLOAT_EQ( pos[ i ].y,read->mPosition.y);
         EXPECT_FLOAT_EQ( pos[ i ].z,read->mPosition.z);
     }
-
-    delete [] origFOV;
-    delete [] orifClipPlaneNear;
-    delete [] orifClipPlaneFar;
-    delete [] names;
-    delete [] pos;
-
 }
 
-#endif
+#endif // ASSIMP_BUILD_NO_EXPORT
 
 

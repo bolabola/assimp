@@ -2,7 +2,9 @@
 Open Asset Import Library (assimp)
 ----------------------------------------------------------------------
 
-Copyright (c) 2006-2016, assimp team
+Copyright (c) 2006-2019, assimp team
+
+
 All rights reserved.
 
 Redistribution and use of this software in source and binary forms,
@@ -41,9 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef INCLUDED_AI_STEPFILE_H
 #define INCLUDED_AI_STEPFILE_H
 
-#include <boost/noncopyable.hpp>
-#include <boost/static_assert.hpp>
-#include <boost/foreach.hpp>
 #include <bitset>
 #include <memory>
 #include <typeinfo>
@@ -52,12 +51,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 
 #include "FBXDocument.h" //ObjectMap::value_type
-#include "../include/assimp/DefaultLogger.hpp"
+#include <assimp/DefaultLogger.hpp>
 
 //
 #if _MSC_VER > 1500 || (defined __GNUC___)
 #   define ASSIMP_STEP_USE_UNORDERED_MULTIMAP
-#   else
+#else
 #   define step_unordered_map map
 #   define step_unordered_multimap multimap
 #endif
@@ -73,8 +72,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #   endif
 #endif
 
-#include "LineSplitter.h"
-
+#include <assimp/LineSplitter.h>
 
 // uncomment this to have the loader evaluate all entities upon loading.
 // this is intended as stress test - by default, entities are evaluated
@@ -121,15 +119,13 @@ namespace STEP {
 
 // ********************************************************************************
 
-
 namespace STEP {
 
     // -------------------------------------------------------------------------------
     /** Exception class used by the STEP loading & parsing code. It is typically
      *  coupled with a line number. */
     // -------------------------------------------------------------------------------
-    struct SyntaxError : DeadlyImportError
-    {
+    struct SyntaxError : DeadlyImportError {
         enum {
             LINE_NOT_SPECIFIED = 0xffffffffffffffffLL
         };
@@ -143,10 +139,10 @@ namespace STEP {
      *  error (i.e. an entity expects a string but receives a bool) occurs.
      *  It is typically coupled with both an entity id and a line number.*/
     // -------------------------------------------------------------------------------
-    struct TypeError : DeadlyImportError
-    {
+    struct TypeError : DeadlyImportError {
         enum {
-            ENTITY_NOT_SPECIFIED = 0xffffffffffffffffLL
+            ENTITY_NOT_SPECIFIED = 0xffffffffffffffffLL,
+            ENTITY_NOT_SPECIFIED_32 = 0x00000000ffffffff
         };
 
         TypeError (const std::string& s,uint64_t entity = ENTITY_NOT_SPECIFIED, uint64_t line = SyntaxError::LINE_NOT_SPECIFIED);
@@ -168,8 +164,7 @@ namespace STEP {
         class DataType
         {
         public:
-
-            typedef boost::shared_ptr<const DataType> Out;
+            typedef std::shared_ptr<const DataType> Out;
 
         public:
 
@@ -220,7 +215,7 @@ namespace STEP {
              *
              *  @throw SyntaxError
              */
-            static boost::shared_ptr<const EXPRESS::DataType> Parse(const char*& inout,
+            static std::shared_ptr<const EXPRESS::DataType> Parse(const char*& inout,
                 uint64_t line                           = SyntaxError::LINE_NOT_SPECIFIED,
                 const EXPRESS::ConversionSchema* schema = NULL);
 
@@ -256,7 +251,7 @@ namespace STEP {
         {
         public:
 
-            // This is the type that will ultimatively be used to
+            // This is the type that will cd ultimatively be used to
             // expose this data type to the user.
             typedef T Out;
 
@@ -340,7 +335,7 @@ namespace STEP {
         public:
 
             // access a particular list index, throw std::range_error for wrong indices
-            boost::shared_ptr<const DataType> operator[] (size_t index) const {
+            std::shared_ptr<const DataType> operator[] (size_t index) const {
                 return members[index];
             }
 
@@ -351,55 +346,62 @@ namespace STEP {
         public:
 
             /** @see DaraType::Parse */
-            static boost::shared_ptr<const EXPRESS::LIST> Parse(const char*& inout,
+            static std::shared_ptr<const EXPRESS::LIST> Parse(const char*& inout,
                 uint64_t line                           = SyntaxError::LINE_NOT_SPECIFIED,
                 const EXPRESS::ConversionSchema* schema = NULL);
 
 
         private:
-            typedef std::vector< boost::shared_ptr<const DataType> > MemberList;
+            typedef std::vector< std::shared_ptr<const DataType> > MemberList;
             MemberList members;
         };
 
+        class BINARY : public PrimitiveDataType<uint32_t> {
+        public:
+            BINARY(uint32_t val)
+            : PrimitiveDataType<uint32_t>(val) {
+                // empty
+            }
+
+            BINARY()
+            : PrimitiveDataType<uint32_t>(TypeError::ENTITY_NOT_SPECIFIED_32) {
+                // empty
+            }
+        };
 
         // -------------------------------------------------------------------------------
         /* Not exactly a full EXPRESS schema but rather a list of conversion functions
          * to extract valid C++ objects out of a STEP file. Those conversion functions
          * may, however, perform further schema validations. */
         // -------------------------------------------------------------------------------
-        class ConversionSchema
-        {
-
+        class ConversionSchema {
         public:
-
             struct SchemaEntry {
-                SchemaEntry(const char* name,ConvertObjectProc func)
-                    : name(name)
-                    , func(func)
-                {}
+                SchemaEntry( const char *name, ConvertObjectProc func )
+                : mName( name )
+                , mFunc(func) {
+                    // empty
+                }
 
-                const char* name;
-                ConvertObjectProc func;
+                const char* mName;
+                ConvertObjectProc mFunc;
             };
 
             typedef std::map<std::string,ConvertObjectProc> ConverterMap;
-
-        public:
 
             template <size_t N>
             explicit ConversionSchema( const SchemaEntry (& schemas)[N]) {
                 *this = schemas;
             }
 
-            ConversionSchema() {}
+            ConversionSchema() {
 
-        public:
+            }
 
             ConvertObjectProc GetConverterProc(const std::string& name) const {
                 ConverterMap::const_iterator it = converters.find(name);
-                return it == converters.end() ? NULL : (*it).second;
+                return it == converters.end() ? nullptr : (*it).second;
             }
-
 
             bool IsKnownToken(const std::string& name) const {
                 return converters.find(name) != converters.end();
@@ -407,7 +409,7 @@ namespace STEP {
 
             const char* GetStaticStringForToken(const std::string& token) const {
                 ConverterMap::const_iterator it = converters.find(token);
-                return it == converters.end() ? NULL : (*it).first.c_str();
+                return it == converters.end() ? nullptr : (*it).first.c_str();
             }
 
 
@@ -415,13 +417,12 @@ namespace STEP {
             const ConversionSchema& operator=( const SchemaEntry (& schemas)[N]) {
                 for(size_t i = 0; i < N; ++i ) {
                     const SchemaEntry& schema = schemas[i];
-                    converters[schema.name] = schema.func;
+                    converters[schema.mName] = schema.mFunc;
                 }
                 return *this;
             }
 
         private:
-
             ConverterMap converters;
         };
     }
@@ -444,15 +445,17 @@ namespace STEP {
     // ------------------------------------------------------------------------------
     /** Base class for all concrete object instances */
     // ------------------------------------------------------------------------------
-    class Object
-    {
+    class Object {
     public:
-
-        virtual ~Object() {}
         Object(const char* classname = "unknown")
-            : classname(classname) {}
+        : id( 0 )
+        , classname(classname) {
+            // empty
+        }
 
-    public:
+        virtual ~Object() {
+            // empty
+        }
 
         // utilities to simplify casting to concrete types
         template <typename T>
@@ -465,7 +468,6 @@ namespace STEP {
             return dynamic_cast<T&>(*this);
         }
 
-
         template <typename T>
         const T* ToPtr() const {
             return dynamic_cast<const T*>(this);
@@ -475,8 +477,6 @@ namespace STEP {
         T* ToPtr() {
             return dynamic_cast<T*>(this);
         }
-
-    public:
 
         uint64_t GetID() const {
             return id;
@@ -495,7 +495,6 @@ namespace STEP {
         const char* const classname;
     };
 
-
     template <typename T>
     size_t GenericFill(const STEP::DB& db, const EXPRESS::LIST& params, T* in);
     // (intentionally undefined)
@@ -505,13 +504,15 @@ namespace STEP {
     /** CRTP shared base class for use by concrete entity implementation classes */
     // ------------------------------------------------------------------------------
     template <typename TDerived, size_t arg_count>
-    struct ObjectHelper : virtual Object
-    {
-        ObjectHelper() : aux_is_derived(0) {}
+    struct ObjectHelper : virtual Object {
+        ObjectHelper()
+        : aux_is_derived(0) {
+            // empty
+        }
 
         static Object* Construct(const STEP::DB& db, const EXPRESS::LIST& params) {
             // make sure we don't leak if Fill() throws an exception
-            std::auto_ptr<TDerived> impl(new TDerived());
+            std::unique_ptr<TDerived> impl(new TDerived());
 
             // GenericFill<T> is undefined so we need to have a specialization
             const size_t num_args = GenericFill<TDerived>(db,params,&*impl);
@@ -536,10 +537,16 @@ namespace STEP {
     /** Class template used to represent OPTIONAL data members in the converted schema */
     // ------------------------------------------------------------------------------
     template <typename T>
-    struct Maybe
-    {
-        Maybe() : have() {}
-        explicit Maybe(const T& ptr) : ptr(ptr), have(true) {
+    struct Maybe {
+        Maybe()
+        : have() {
+            // empty
+        }
+
+        explicit Maybe(const T& ptr)
+        : ptr(ptr)
+        , have(true) {
+            // empty
         }
 
 
@@ -576,7 +583,6 @@ namespace STEP {
         }
 
     private:
-
         template <typename T2> friend struct InternGenericConvert;
 
         operator T&() {
@@ -591,15 +597,12 @@ namespace STEP {
     /** A LazyObject is created when needed. Before this happens, we just keep
        the text line that contains the object definition. */
     // -------------------------------------------------------------------------------
-    class LazyObject : public boost::noncopyable
-    {
+    class LazyObject {
         friend class DB;
-    public:
 
+    public:
         LazyObject(DB& db, uint64_t id, uint64_t line, const char* type,const char* args);
         ~LazyObject();
-
-    public:
 
         Object& operator * () {
             if (!obj) {
@@ -658,38 +661,37 @@ namespace STEP {
         }
 
     private:
-
         void LazyInit() const;
 
     private:
-
         mutable uint64_t id;
         const char* const type;
         DB& db;
-
         mutable const char* args;
         mutable Object* obj;
     };
 
     template <typename T>
-    inline bool operator==( boost::shared_ptr<LazyObject> lo, T whatever ) {
+    inline
+    bool operator==( std::shared_ptr<LazyObject> lo, T whatever ) {
         return *lo == whatever; // XXX use std::forward if we have 0x
     }
 
     template <typename T>
-    inline bool operator==( const std::pair<uint64_t, boost::shared_ptr<LazyObject> >& lo, T whatever ) {
+    inline
+    bool operator==( const std::pair<uint64_t, std::shared_ptr<LazyObject> >& lo, T whatever ) {
         return *(lo.second) == whatever; // XXX use std::forward if we have 0x
     }
-
 
     // ------------------------------------------------------------------------------
     /** Class template used to represent lazily evaluated object references in the converted schema */
     // ------------------------------------------------------------------------------
     template <typename T>
-    struct Lazy
-    {
+    struct Lazy {
         typedef Lazy Out;
-        Lazy(const LazyObject* obj = NULL) : obj(obj) {
+        Lazy(const LazyObject* obj = nullptr)
+        : obj(obj) {
+            // empty
         }
 
         operator const T*() const {
@@ -715,18 +717,14 @@ namespace STEP {
     /** Class template used to represent LIST and SET data members in the converted schema */
     // ------------------------------------------------------------------------------
     template <typename T, uint64_t min_cnt, uint64_t max_cnt=0uL>
-    struct ListOf : public std::vector<typename T::Out>
-    {
+    struct ListOf : public std::vector<typename T::Out> {
         typedef typename T::Out OutScalar;
         typedef ListOf Out;
 
-
         ListOf() {
-            BOOST_STATIC_ASSERT(min_cnt <= max_cnt || !max_cnt);
+            static_assert(min_cnt <= max_cnt || !max_cnt, "min_cnt <= max_cnt || !max_cnt");
         }
-
     };
-
 
     // ------------------------------------------------------------------------------
     template <typename TOut>
@@ -739,31 +737,31 @@ namespace STEP {
         typedef EXPRESS::ENTITY Type;
     };
 
-    template <> struct PickBaseType< boost::shared_ptr< const EXPRESS::DataType > >;
+    template<>
+    struct PickBaseType< std::shared_ptr< const EXPRESS::DataType > >;
 
     // ------------------------------------------------------------------------------
     template <typename T>
     struct InternGenericConvert {
-        void operator()(T& out, const boost::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& /*db*/) {
+        void operator()(T& out, const std::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& /*db*/) {
             try{
                 out = dynamic_cast< const typename PickBaseType<T>::Type& > ( *in );
-            }
-            catch(std::bad_cast&) {
+            } catch(std::bad_cast&) {
                 throw TypeError("type error reading literal field");
             }
         }
     };
 
     template <>
-    struct InternGenericConvert< boost::shared_ptr< const EXPRESS::DataType > > {
-        void operator()(boost::shared_ptr< const EXPRESS::DataType >& out, const boost::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& /*db*/) {
+    struct InternGenericConvert< std::shared_ptr< const EXPRESS::DataType > > {
+        void operator()(std::shared_ptr< const EXPRESS::DataType >& out, const std::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& /*db*/) {
             out = in;
         }
     };
 
     template <typename T>
     struct InternGenericConvert< Maybe<T> > {
-        void operator()(Maybe<T>& out, const boost::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& db) {
+        void operator()(Maybe<T>& out, const std::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& db) {
             GenericConvert((T&)out,in,db);
             out.flag_valid();
         }
@@ -771,7 +769,7 @@ namespace STEP {
 
     template <typename T,uint64_t min_cnt, uint64_t max_cnt>
     struct InternGenericConvertList {
-        void operator()(ListOf<T, min_cnt, max_cnt>& out, const boost::shared_ptr< const EXPRESS::DataType >& inp_base, const STEP::DB& db) {
+        void operator()(ListOf<T, min_cnt, max_cnt>& out, const std::shared_ptr< const EXPRESS::DataType >& inp_base, const STEP::DB& db) {
 
             const EXPRESS::LIST* inp = dynamic_cast<const EXPRESS::LIST*>(inp_base.get());
             if (!inp) {
@@ -780,10 +778,10 @@ namespace STEP {
 
             // XXX is this really how the EXPRESS notation ([?:3],[1:3]) is intended?
             if (max_cnt && inp->GetSize() > max_cnt) {
-                DefaultLogger::get()->warn("too many aggregate elements");
+                ASSIMP_LOG_WARN("too many aggregate elements");
             }
             else if (inp->GetSize() < min_cnt) {
-                DefaultLogger::get()->warn("too few aggregate elements");
+                ASSIMP_LOG_WARN("too few aggregate elements");
             }
 
             out.reserve(inp->GetSize());
@@ -802,7 +800,7 @@ namespace STEP {
 
     template <typename T>
     struct InternGenericConvert< Lazy<T> > {
-        void operator()(Lazy<T>& out, const boost::shared_ptr< const EXPRESS::DataType >& in_base, const STEP::DB& db) {
+        void operator()(Lazy<T>& out, const std::shared_ptr< const EXPRESS::DataType >& in_base, const STEP::DB& db) {
             const EXPRESS::ENTITY* in = dynamic_cast<const EXPRESS::ENTITY*>(in_base.get());
             if (!in) {
                 throw TypeError("type error reading entity");
@@ -812,15 +810,14 @@ namespace STEP {
     };
 
     template <typename T1>
-    inline void GenericConvert(T1& a, const boost::shared_ptr< const EXPRESS::DataType >& b, const STEP::DB& db) {
+    inline void GenericConvert(T1& a, const std::shared_ptr< const EXPRESS::DataType >& b, const STEP::DB& db) {
         return InternGenericConvert<T1>()(a,b,db);
     }
 
     template <typename T1,uint64_t N1, uint64_t N2>
-    inline void GenericConvert(ListOf<T1,N1,N2>& a, const boost::shared_ptr< const EXPRESS::DataType >& b, const STEP::DB& db) {
+    inline void GenericConvert(ListOf<T1,N1,N2>& a, const std::shared_ptr< const EXPRESS::DataType >& b, const STEP::DB& db) {
         return InternGenericConvertList<T1,N1,N2>()(a,b,db);
     }
-
 
     // ------------------------------------------------------------------------------
     /** Lightweight manager class that holds the map of all objects in a
@@ -829,7 +826,7 @@ namespace STEP {
     // -------------------------------------------------------------------------------
     class DB
     {
-        friend DB* ReadFileHeader(boost::shared_ptr<IOStream> stream);
+        friend DB* ReadFileHeader(std::shared_ptr<IOStream> stream);
         friend void ReadFile(DB& db,const EXPRESS::ConversionSchema& scheme,
             const char* const* types_to_track, size_t len,
             const char* const* inverse_indices_to_track, size_t len2
@@ -838,7 +835,6 @@ namespace STEP {
         friend class LazyObject;
 
     public:
-
         // objects indexed by ID - this can grow pretty large (i.e some hundred million
         // entries), so use raw pointers to avoid *any* overhead.
         typedef std::map<uint64_t,const LazyObject* > ObjectMap;
@@ -859,22 +855,19 @@ namespace STEP {
 
     private:
 
-        DB(boost::shared_ptr<StreamReaderLE> reader)
+        DB(std::shared_ptr<StreamReaderLE> reader)
             : reader(reader)
             , splitter(*reader,true,true)
             , evaluated_count()
-            , schema( NULL )
+            , schema( nullptr )
         {}
 
     public:
-
         ~DB() {
-            BOOST_FOREACH(ObjectMap::value_type& o, objects) {
+            for(ObjectMap::value_type& o : objects) {
                 delete o.second;
             }
         }
-
-    public:
 
         uint64_t GetObjectCount() const {
             return objects.size();
@@ -904,7 +897,6 @@ namespace STEP {
             return refs;
         }
 
-
         bool KeepInverseIndicesForType(const char* const type) const {
             return inv_whitelist.find(type) != inv_whitelist.end();
         }
@@ -916,7 +908,7 @@ namespace STEP {
             if (it != objects.end()) {
                 return (*it).second;
             }
-            return NULL;
+            return nullptr;
         }
 
 
@@ -951,7 +943,7 @@ namespace STEP {
 
         // evaluate *all* entities in the file. this is a power test for the loader
         void EvaluateAll() {
-            BOOST_FOREACH(ObjectMap::value_type& e,objects) {
+            for(ObjectMap::value_type& e :objects) {
                 **e.second;
             }
             ai_assert(evaluated_count == objects.size());
@@ -1004,26 +996,20 @@ namespace STEP {
             refs.insert(std::make_pair(who,by_whom));
         }
 
-
-
     private:
-
         HeaderInfo header;
         ObjectMap objects;
         ObjectMapByType objects_bytype;
         RefMap refs;
         InverseWhitelist inv_whitelist;
-
-        boost::shared_ptr<StreamReaderLE> reader;
+        std::shared_ptr<StreamReaderLE> reader;
         LineSplitter splitter;
-
         uint64_t evaluated_count;
-
         const EXPRESS::ConversionSchema* schema;
     };
 
 }
 
-
 } // end Assimp
-#endif
+
+#endif // INCLUDED_AI_STEPFILE_H

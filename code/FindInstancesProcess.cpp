@@ -3,7 +3,9 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2016, assimp team
+Copyright (c) 2006-2019, assimp team
+
+
 
 All rights reserved.
 
@@ -45,7 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #include "FindInstancesProcess.h"
-#include <boost/scoped_array.hpp>
+#include <memory>
 #include <stdio.h>
 
 using namespace Assimp;
@@ -117,7 +119,7 @@ void UpdateMeshIndices(aiNode* node, unsigned int* lookup)
 // Executes the post processing step on the given imported data.
 void FindInstancesProcess::Execute( aiScene* pScene)
 {
-    DefaultLogger::get()->debug("FindInstancesProcess begin");
+    ASSIMP_LOG_DEBUG("FindInstancesProcess begin");
     if (pScene->mNumMeshes) {
 
         // use a pseudo hash for all meshes in the scene to quickly find
@@ -126,8 +128,8 @@ void FindInstancesProcess::Execute( aiScene* pScene)
         // have several thousand small meshes. That's too much for a brute
         // everyone-against-everyone check involving up to 10 comparisons
         // each.
-        boost::scoped_array<uint64_t> hashes (new uint64_t[pScene->mNumMeshes]);
-        boost::scoped_array<unsigned int> remapping (new unsigned int[pScene->mNumMeshes]);
+        std::unique_ptr<uint64_t[]> hashes (new uint64_t[pScene->mNumMeshes]);
+        std::unique_ptr<unsigned int[]> remapping (new unsigned int[pScene->mNumMeshes]);
 
         unsigned int numMeshesOut = 0;
         for (unsigned int i = 0; i < pScene->mNumMeshes; ++i) {
@@ -176,30 +178,30 @@ void FindInstancesProcess::Execute( aiScene* pScene)
                     // use a constant epsilon for colors and UV coordinates
                     static const float uvEpsilon = 10e-4f;
                     {
-                        unsigned int i, end = orig->GetNumUVChannels();
-                        for(i = 0; i < end; ++i) {
-                            if (!orig->mTextureCoords[i]) {
+                        unsigned int j, end = orig->GetNumUVChannels();
+                        for(j = 0; j < end; ++j) {
+                            if (!orig->mTextureCoords[j]) {
                                 continue;
                             }
-                            if(!CompareArrays(orig->mTextureCoords[i],inst->mTextureCoords[i],orig->mNumVertices,uvEpsilon)) {
+                            if(!CompareArrays(orig->mTextureCoords[j],inst->mTextureCoords[j],orig->mNumVertices,uvEpsilon)) {
                                 break;
                             }
                         }
-                        if (i != end) {
+                        if (j != end) {
                             continue;
                         }
                     }
                     {
-                        unsigned int i, end = orig->GetNumColorChannels();
-                        for(i = 0; i < end; ++i) {
-                            if (!orig->mColors[i]) {
+                        unsigned int j, end = orig->GetNumColorChannels();
+                        for(j = 0; j < end; ++j) {
+                            if (!orig->mColors[j]) {
                                 continue;
                             }
-                            if(!CompareArrays(orig->mColors[i],inst->mColors[i],orig->mNumVertices,uvEpsilon)) {
+                            if(!CompareArrays(orig->mColors[j],inst->mColors[j],orig->mNumVertices,uvEpsilon)) {
                                 break;
                             }
                         }
-                        if (i != end) {
+                        if (j != end) {
                             continue;
                         }
                     }
@@ -219,8 +221,8 @@ void FindInstancesProcess::Execute( aiScene* pScene)
 
                         // For completeness ... compare even the index buffers for equality
                         // face order & winding order doesn't care. Input data is in verbose format.
-                        boost::scoped_array<unsigned int> ftbl_orig(new unsigned int[orig->mNumVertices]);
-                        boost::scoped_array<unsigned int> ftbl_inst(new unsigned int[orig->mNumVertices]);
+                        std::unique_ptr<unsigned int[]> ftbl_orig(new unsigned int[orig->mNumVertices]);
+                        std::unique_ptr<unsigned int[]> ftbl_inst(new unsigned int[orig->mNumVertices]);
 
                         for (unsigned int tt = 0; tt < orig->mNumFaces;++tt) {
                             aiFace& f = orig->mFaces[tt];
@@ -265,13 +267,11 @@ void FindInstancesProcess::Execute( aiScene* pScene)
 
             // write to log
             if (!DefaultLogger::isNullLogger()) {
-
-                char buffer[512];
-                ::ai_snprintf(buffer,512,"FindInstancesProcess finished. Found %i instances",pScene->mNumMeshes-numMeshesOut);
-                DefaultLogger::get()->info(buffer);
+                ASSIMP_LOG_INFO_F( "FindInstancesProcess finished. Found ", (pScene->mNumMeshes - numMeshesOut), " instances" );
             }
             pScene->mNumMeshes = numMeshesOut;
+        } else {
+            ASSIMP_LOG_DEBUG("FindInstancesProcess finished. No instanced meshes found");
         }
-        else DefaultLogger::get()->debug("FindInstancesProcess finished. No instanced meshes found");
     }
 }

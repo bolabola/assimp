@@ -28,7 +28,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 BEGIN_ODDLPARSER_NS
 
+// Forward declarations
 struct ValueAllocator;
+
+class IOStreamBase;
 
 ///------------------------------------------------------------------------------------------------
 ///	@brief  This class implements a value.
@@ -213,15 +216,24 @@ public:
     double getDouble() const;
 
     ///	@brief  Assigns a std::string to the value.
-    /// @param  value       [in] The value.
+    /// @param  str         [in] The value.
     void setString( const std::string &str );
 
     ///	@brief  Returns the std::string value.
     /// @return The std::string value.
     const char *getString() const;
 
+    /// @brief  Set the reference.
+    /// @param  ref     [in] Pointer showing to the reference.
+    void setRef( Reference *ref );
+
+    /// @brief  Returns the pointer showing to the reference.
+    /// @return Pointer showing to the reference.
+    Reference *getRef() const;
+
     ///	@brief  Dumps the value.
-    void dump();
+    /// @param  stream  [in] The stream to write in.
+    void dump( IOStreamBase &stream );
 
     ///	@brief  Assigns the next value.
     ///	@param  next        [n] The next value.
@@ -233,7 +245,7 @@ public:
 
     /// @brief  Gets the length of the array.
     /// @return The number of items in the array.
-    size_t size();
+    size_t size() const;
 
     ValueType m_type;
     size_t m_size;
@@ -241,8 +253,8 @@ public:
     Value *m_next;
 
 private:
-    Value &operator =( const Value & );
-    Value( const Value  & );
+    Value &operator =( const Value & ) ddl_no_copy;
+    Value( const Value  & ) ddl_no_copy;
 };
 
 ///------------------------------------------------------------------------------------------------
@@ -253,9 +265,9 @@ struct DLL_ODDLPARSER_EXPORT ValueAllocator {
     static void releasePrimData( Value **data );
 
 private:
-    ValueAllocator();
-    ValueAllocator( const ValueAllocator  & );
-    ValueAllocator &operator = ( const ValueAllocator & );
+    ValueAllocator() ddl_no_copy;
+    ValueAllocator( const ValueAllocator  & ) ddl_no_copy;
+    ValueAllocator &operator = ( const ValueAllocator & ) ddl_no_copy;
 };
 
 END_ODDLPARSER_NS

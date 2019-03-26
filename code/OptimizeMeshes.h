@@ -2,7 +2,9 @@
 Open Asset Import Library (assimp)
 ----------------------------------------------------------------------
 
-Copyright (c) 2006-2016, assimp team
+Copyright (c) 2006-2019, assimp team
+
+
 All rights reserved.
 
 Redistribution and use of this software in source and binary forms,
@@ -45,7 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define AI_OPTIMIZEMESHESPROCESS_H_INC
 
 #include "BaseProcess.h"
-#include "../include/assimp/types.h"
+#include <assimp/types.h>
 #include <vector>
 
 struct aiMesh;
@@ -65,20 +67,22 @@ namespace Assimp    {
 class OptimizeMeshesProcess : public BaseProcess
 {
 public:
-
+    /// @brief  The class constructor.
     OptimizeMeshesProcess();
+
+    /// @brief  The class destcructor,
     ~OptimizeMeshesProcess();
 
 
     /** @brief Internal utility to store additional mesh info
      */
-    struct MeshInfo
-    {
-        MeshInfo()
-            :   instance_cnt  (0)
-            ,   vertex_format (0)
-            ,   output_id     (0xffffffff)
-        {}
+    struct MeshInfo {
+        MeshInfo() AI_NO_EXCEPT
+        : instance_cnt(0)
+        , vertex_format(0)
+        , output_id(0xffffffff) {
+            // empty
+        }
 
         //! Number of times this mesh is referenced
         unsigned int instance_cnt;
